@@ -26,10 +26,14 @@ namespace ReactiveEmojiDownloader
 
             var githubClient = new ObservableGitHubClient(new ProductHeaderValue("Haack-Reactive-Emoji-Downloader"));
             githubClient.Miscellaneous.GetEmojis()
-                .Buffer(4) // Downloads 4 at a time.
-                .Do(group => Task.WaitAll(group
-                    .Select(emoji => new { emoji.Url, FilePath = Path.Combine(outputDirectory, emoji.Name + ".png") })
-                    .Select(download => DownloadImage(download.Url, download.FilePath)).ToArray()))
+                .Select(emoji => Observable.FromAsync(async () =>
+                {
+                    var path = Path.Combine(outputDirectory, emoji.Name + ".png");
+                    await DownloadImage(emoji.Url, path);
+                    return path;
+                }))
+                .Merge(4)
+                .ToArray()
                 .Wait();
         }
 
